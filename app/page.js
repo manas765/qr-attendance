@@ -35,17 +35,20 @@ export default function Home() {
     }
   }
 
-  const features = [
-    ["qr", "i1", "Rotating QR codes", "A new code every 30 seconds, so screenshots are useless."],
-    ["shield", "i2", "Proxy-proof", "Only enrolled students can mark attendance, once per class."],
-    ["chart", "i4", "Live reports", "Instant percentages, risk alerts and CSV export."],
-  ];
+const features = [
+  ["qr", "i1", "Code changes every 30 seconds", "A screenshot sent to a friend stops working almost immediately."],
+  ["shield", "i2", "Enrolled students only", "Each student can mark attendance once per class."],
+  ["chart", "i4", "Reports and CSV export", "Percentages per student, with anyone below 75% flagged."],
+];
 
   return (
     <div className="auth">
       <section className="hero">
         <div className="brand"><span className="logo"><Icon name="qr" size={18} /></span> QR Attendance</div>
-        <h1>Attendance that <span className="grad">can't be faked.</span></h1>
+        <h1>Take attendance in <span className="grad">under a minute.</span></h1>
+        <p className="muted" style={{ fontSize: "1.05rem", maxWidth: 440 }}>
+        Show a QR code in class. Students scan it with their phone. Every record is saved with a timestamp.
+        </p>
         <p className="muted" style={{ fontSize: "1.1rem", maxWidth: 460 }}>
           Faculty project a live QR. Students scan it. Done in seconds, with every record verified.
         </p>

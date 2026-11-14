@@ -7,7 +7,7 @@ import Icon from "./Icons";
 export default function Shell({ role, children }) {
   const router = useRouter();
   const [user, setUser] = useState(null);
-  const [theme, setTheme] = useState("dark");
+  const [theme, setTheme] = useState("light");
 
   useEffect(() => {
     try {
