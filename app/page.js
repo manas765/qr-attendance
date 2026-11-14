@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 export default function Home() {
   const router = useRouter();
   const [mode, setMode] = useState("login");
-  const [form, setForm] = useState({ name: "", email: "", password: "", role: "student" });
+  const [form, setForm] = useState({ name: "", email: "", password: "", role: "student", inviteCode: "" });
   const [error, setError] = useState("");
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
@@ -17,7 +17,7 @@ export default function Home() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
     });
-    const data = await res.json();
+    const data = await res.json().catch(() => ({ error: "Server error" }));
     if (!res.ok) return setError(data.error);
     router.push(data.role === "faculty" ? "/faculty" : "/student");
   }
@@ -33,6 +33,9 @@ export default function Home() {
               <option value="student">Student</option>
               <option value="faculty">Faculty</option>
             </select>
+            {form.role === "faculty" && (
+              <input placeholder="Faculty invite code" value={form.inviteCode} onChange={set("inviteCode")} required />
+            )}
           </>
         )}
         <input type="email" placeholder="Email" value={form.email} onChange={set("email")} required />

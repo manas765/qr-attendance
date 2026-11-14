@@ -4,11 +4,13 @@ import { sql } from "@/lib/db";
 import { createToken, cookieOptions } from "@/lib/auth";
 
 export async function POST(req) {
-  const { name, email, password, role } = await req.json();
+  const { name, email, password, role, inviteCode } = await req.json();
   if (!name || !email || !password || !["faculty", "student"].includes(role))
     return NextResponse.json({ error: "Invalid input" }, { status: 400 });
   if (password.length < 6)
     return NextResponse.json({ error: "Password must be at least 6 characters" }, { status: 400 });
+  if (role === "faculty" && (!process.env.FACULTY_CODE || inviteCode !== process.env.FACULTY_CODE))
+    return NextResponse.json({ error: "Invalid faculty invite code" }, { status: 403 });
 
   const hash = await bcrypt.hash(password, 10);
   try {
