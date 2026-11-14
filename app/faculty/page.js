@@ -2,109 +2,151 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { QRCodeSVG } from "qrcode.react";
+import Shell from "@/components/Shell";
+import Modal from "@/components/Modal";
+import Icon from "@/components/Icons";
+import { useToast } from "@/components/Toast";
 
 export default function Faculty() {
   const router = useRouter();
-  const [courses, setCourses] = useState([]);
-  const [form, setForm] = useState({ code: "", name: "" });
+  const toast = useToast();
+  const [courses, setCourses] = useState(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [startFor, setStartFor] = useState(null);
   const [minutes, setMinutes] = useState(60);
-  const [session, setSession] = useState(null);
-  const [token, setToken] = useState("");
-  const [count, setCount] = useState(0);
-  const [error, setError] = useState("");
+  const [form, setForm] = useState({ code: "", name: "" });
+  const [busy, setBusy] = useState(false);
 
-  async function loadCourses() {
+  async function load() {
     const res = await fetch("/api/courses");
-    if (res.status === 403) return router.push("/");
-    setCourses(await res.json());
+    if (res.ok) setCourses(await res.json());
   }
-  useEffect(() => { loadCourses(); }, []);
+  useEffect(() => { load(); }, []);
 
   async function createCourse(e) {
     e.preventDefault();
-    setError("");
+    setBusy(true);
     const res = await fetch("/api/courses", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form),
     });
-    const data = await res.json();
-    if (!res.ok) return setError(data.error);
+    const data = await res.json().catch(() => ({}));
+    setBusy(false);
+    if (!res.ok) return toast(data.error || "Failed", "error");
+    toast("Course created 🎉", "success");
     setForm({ code: "", name: "" });
-    loadCourses();
-  }
-
-  async function startSession(courseId) {
-    setError("");
-    const res = await fetch("/api/sessions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ courseId, minutes }),
-    });
-    const data = await res.json();
-    if (!res.ok) return setError(data.error);
-    setSession(data);
-  }
-
-  useEffect(() => {
-    if (!session) return;
-    const load = async () => {
-      const res = await fetch(`/api/sessions/${session.id}/token`);
-      if (!res.ok) { setSession(null); setError("Session ended"); return; }
-      const data = await res.json();
-      setToken(data.token);
-      setCount(data.count);
-    };
+    setShowCreate(false);
     load();
-    const t = setInterval(load, 5000);
-    return () => clearInterval(t);
-  }, [session]);
-
-  async function logout() {
-    await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/");
   }
+
+  async function startSession() {
+    setBusy(true);
+    const res = await fetch("/api/sessions", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ courseId: startFor.id, minutes }),
+    });
+    const data = await res.json().catch(() => ({}));
+    setBusy(false);
+    if (!res.ok) return toast(data.error || "Failed", "error");
+    router.push(`/faculty/session/${data.id}`);
+  }
+
+  function copy(code) {
+    navigator.clipboard?.writeText(code);
+    toast(`Join code ${code} copied`, "success");
+  }
+
+  const totalStudents = (courses || []).reduce((a, c) => a + c.students, 0);
+  const totalSessions = (courses || []).reduce((a, c) => a + c.sessions, 0);
 
   return (
-    <main style={{ maxWidth: 520, margin: "40px auto", padding: 16, fontFamily: "sans-serif" }}>
-      <h1>Faculty Dashboard</h1>
-      {session ? (
-        <div style={{ textAlign: "center" }}>
-          <h2>{session.course}</h2>
-          {token && <QRCodeSVG value={token} size={280} />}
-          <p>QR refreshes every 30 seconds</p>
-          <p><b>{count}</b> students marked present</p>
-          <button onClick={() => { setSession(null); loadCourses(); }}>Close session</button>
+    <Shell role="faculty">
+      <div className="row between mb">
+        <div>
+          <h1>Your classes</h1>
+          <p className="muted">Create a course, share the join code, then start a session.</p>
         </div>
-      ) : (
-        <>
-          <h3>Create a course</h3>
-          <form onSubmit={createCourse} style={{ display: "grid", gap: 8 }}>
-            <input placeholder="Code (e.g. MCA301)" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} required />
-            <input placeholder="Name (e.g. Cloud Computing)" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-            <button type="submit">Add course</button>
-          </form>
-          {error && <p style={{ color: "crimson" }}>{error}</p>}
+        <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
+          <Icon name="plus" size={18} /> New course
+        </button>
+      </div>
 
-          <h3>My courses</h3>
-          <label>Session length (minutes):{" "}
-            <input type="number" min={5} max={240} value={minutes} onChange={(e) => setMinutes(e.target.value)} style={{ width: 70 }} />
-          </label>
-          {courses.length === 0 && <p>No courses yet.</p>}
-          {courses.map((c) => (
-            <div key={c.id} style={{ border: "1px solid #ccc", borderRadius: 8, padding: 12, margin: "10px 0" }}>
-              <b>{c.code} - {c.name}</b>
-              <p style={{ margin: "4px 0" }}>
-                Join code: <code style={{ fontSize: 18 }}>{c.join_code}</code> · {c.students} students · {c.sessions} sessions
-              </p>
-              <button onClick={() => startSession(c.id)}>Start session</button>{" "}
-              <Link href={`/faculty/course/${c.id}`}>View report</Link>
-            </div>
-          ))}
-        </>
+      <div className="grid c4 mb">
+        {[
+          ["book", "i1", courses?.length ?? "–", "Courses"],
+          ["users", "i2", courses ? totalStudents : "–", "Enrolled students"],
+          ["qr", "i4", courses ? totalSessions : "–", "Sessions held"],
+        ].map(([ic, cls, n, label]) => (
+          <div className="card stat" key={label}>
+            <span className={`ico ${cls}`}><Icon name={ic} /></span>
+            <div><b>{n}</b><span className="muted small">{label}</span></div>
+          </div>
+        ))}
+      </div>
+
+      {courses === null && <div className="grid c2">{[1, 2].map((i) => <div key={i} className="skeleton" style={{ height: 170 }} />)}</div>}
+
+      {courses?.length === 0 && (
+        <div className="empty">
+          <div className="ico i1"><Icon name="book" size={26} /></div>
+          <h3 style={{ color: "var(--text)" }}>No courses yet</h3>
+          <p className="small mb">Create your first course to get a join code for students.</p>
+          <button className="btn btn-primary" onClick={() => setShowCreate(true)}><Icon name="plus" size={18} /> Create course</button>
+        </div>
       )}
-      <p><button onClick={logout}>Logout</button></p>
-    </main>
+
+      <div className="grid c2">
+        {courses?.map((c) => (
+          <div key={c.id} className="card hover stack">
+            <div className="row between">
+              <span className="badge">{c.code}</span>
+              <span className="muted small">{c.students} students · {c.sessions} sessions</span>
+            </div>
+            <h2>{c.name}</h2>
+            <div className="row between">
+              <span className="muted small">Join code</span>
+              <span className="code-pill">
+                {c.join_code}
+                <button className="btn btn-sm btn-icon" onClick={() => copy(c.join_code)} aria-label="Copy"><Icon name="copy" size={14} /></button>
+              </span>
+            </div>
+            <div className="row">
+              <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => setStartFor(c)}>
+                <Icon name="qr" size={18} /> Start session
+              </button>
+              <Link href={`/faculty/course/${c.id}`} className="btn"><Icon name="chart" size={18} /> Report</Link>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {showCreate && (
+        <Modal title="New course" onClose={() => setShowCreate(false)}>
+          <form onSubmit={createCourse} className="stack">
+            <label className="lbl">Course code
+              <input className="input" placeholder="MCA301" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} required />
+            </label>
+            <label className="lbl">Course name
+              <input className="input" placeholder="Cloud Computing" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+            </label>
+            <button className="btn btn-primary" disabled={busy}>{busy ? <span className="spinner" /> : "Create course"}</button>
+          </form>
+        </Modal>
+      )}
+
+      {startFor && (
+        <Modal title={`Start session`} onClose={() => setStartFor(null)}>
+          <p className="muted small mb">{startFor.code} - {startFor.name}</p>
+          <p className="small mb" style={{ fontWeight: 600 }}>How long should attendance stay open?</p>
+          <div className="seg mb">
+            {[15, 30, 60, 90, 120].map((m) => (
+              <button key={m} className={minutes === m ? "active" : ""} onClick={() => setMinutes(m)}>{m}m</button>
+            ))}
+          </div>
+          <button className="btn btn-primary btn-block" onClick={startSession} disabled={busy}>
+            {busy ? <span className="spinner" /> : "Go live"}
+          </button>
+        </Modal>
+      )}
+    </Shell>
   );
 }
