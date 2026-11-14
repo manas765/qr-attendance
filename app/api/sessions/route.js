@@ -7,17 +7,20 @@ export async function POST(req) {
   if (!user || user.role !== "faculty")
     return NextResponse.json({ error: "Faculty only" }, { status: 403 });
 
-  const { courseId, minutes } = await req.json();
+  const { courseId, minutes, lat, lng, radius } = await req.json();
   const mins = Math.min(Math.max(parseInt(minutes) || 60, 5), 240);
+  const useGeo = typeof lat === "number" && typeof lng === "number";
+  const rad = Math.min(Math.max(parseInt(radius) || 150, 30), 1000);
 
   const [course] = await sql`
     SELECT id, code, name FROM courses WHERE id = ${courseId} AND faculty_id = ${user.id}`;
   if (!course) return NextResponse.json({ error: "Course not found" }, { status: 404 });
 
   const [session] = await sql`
-    INSERT INTO class_sessions (faculty_id, course_id, course, ends_at)
+    INSERT INTO class_sessions (faculty_id, course_id, course, ends_at, lat, lng, radius_m)
     VALUES (${user.id}, ${course.id}, ${course.code + " - " + course.name},
-            now() + make_interval(mins => ${mins}::int))
+            now() + make_interval(mins => ${mins}::int),
+            ${useGeo ? lat : null}, ${useGeo ? lng : null}, ${useGeo ? rad : null})
     RETURNING id, course, ends_at`;
   return NextResponse.json(session);
 }
