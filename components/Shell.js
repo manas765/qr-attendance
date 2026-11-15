@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Icon from "./Icons";
 
+const HOME = { admin: "/admin", faculty: "/faculty", student: "/student" };
+
 export default function Shell({ role, children }) {
   const router = useRouter();
   const [user, setUser] = useState(null);
@@ -16,7 +18,10 @@ export default function Shell({ role, children }) {
     } catch {}
     fetch("/api/me")
       .then((r) => r.json())
-      .then((u) => (!u || u.role !== role ? router.replace("/") : setUser(u)))
+      .then((u) => {
+        if (!u || (role !== "any" && u.role !== role)) router.replace("/");
+        else setUser(u);
+      })
       .catch(() => router.replace("/"));
   }, [role, router]);
 
@@ -36,17 +41,23 @@ export default function Shell({ role, children }) {
     <>
       <header className="nav">
         <div className="nav-in">
-          <Link href={role === "faculty" ? "/faculty" : "/student"} className="brand">
-            <span className="logo"><Icon name="qr" size={18} /></span> QR Attendance
+          <Link href={user ? HOME[user.role] : "/"} className="brand">
+            <span className="logo"><Icon name="qr" size={18} /></span>
+            <span className="hide-sm">QR Attendance</span>
           </Link>
           <span className="spacer" />
+          {user?.role === "faculty" && (
+            <Link href="/faculty/alerts" className="btn btn-sm">Alerts</Link>
+          )}
           {user && (
             <>
               <div className="who">
                 <b style={{ fontSize: ".9rem" }}>{user.name}</b>
                 <span className="muted small" style={{ textTransform: "capitalize" }}>{user.role}</span>
               </div>
-              <span className="avatar">{user.name?.[0]?.toUpperCase()}</span>
+              <Link href="/account" className="avatar" aria-label="Account" style={{ textDecoration: "none", color: "inherit" }}>
+                {user.name?.[0]?.toUpperCase()}
+              </Link>
             </>
           )}
           <button className="btn btn-icon" onClick={toggleTheme} aria-label="Toggle theme">

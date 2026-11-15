@@ -2,19 +2,17 @@ import { NextResponse } from "next/server";
 import { sql } from "@/lib/db";
 import { getUser } from "@/lib/auth";
 import { verifyToken } from "@/lib/qr";
-
-function metres(lat1, lng1, lat2, lng2) {
-  const R = 6371000, rad = (x) => (x * Math.PI) / 180;
-  const dLat = rad(lat2 - lat1), dLng = rad(lng2 - lng1);
-  const a = Math.sin(dLat / 2) ** 2 +
-    Math.cos(rad(lat1)) * Math.cos(rad(lat2)) * Math.sin(dLng / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(a));
-}
+import { metres } from "@/lib/geo";
+import { tooMany, hit } from "@/lib/ratelimit";
 
 export async function POST(req) {
   const user = await getUser();
   if (!user || user.role !== "student")
     return NextResponse.json({ error: "Login as a student first" }, { status: 403 });
+
+  if (await tooMany(`attend:${user.id}`, 30, 60))
+    return NextResponse.json({ error: "Too many scan attempts. Wait a minute and try again." }, { status: 429 });
+  await hit(`attend:${user.id}`);
 
   const { token, lat, lng, accuracy, deviceId } = await req.json();
   const sessionId = verifyToken(token);

@@ -4,17 +4,19 @@ import { useRouter } from "next/navigation";
 import Icon from "@/components/Icons";
 import { useToast } from "@/components/Toast";
 
+const HOME = { admin: "/admin", faculty: "/faculty", student: "/student" };
+
 export default function Home() {
   const router = useRouter();
   const toast = useToast();
   const [mode, setMode] = useState("login");
   const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState({ name: "", email: "", password: "", role: "student", inviteCode: "" });
+  const [form, setForm] = useState({ name: "", email: "", password: "", role: "student" });
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
   useEffect(() => {
     fetch("/api/me").then((r) => r.json()).then((u) => {
-      if (u) router.replace(u.role === "faculty" ? "/faculty" : "/student");
+      if (u) router.replace(HOME[u.role] || "/");
     }).catch(() => {});
   }, [router]);
 
@@ -29,17 +31,22 @@ export default function Home() {
       });
       const data = await res.json().catch(() => ({ error: "Server error" }));
       if (!res.ok) return toast(data.error, "error");
-      router.push(data.role === "faculty" ? "/faculty" : "/student");
+      if (data.pending) {
+        toast(data.message, "success");
+        setMode("login");
+        return;
+      }
+      router.push(HOME[data.role] || "/");
     } finally {
       setLoading(false);
     }
   }
 
-const features = [
-  ["qr", "i1", "Code changes every 30 seconds", "A screenshot sent to a friend stops working almost immediately."],
-  ["shield", "i2", "Enrolled students only", "Each student can mark attendance once per class."],
-  ["chart", "i4", "Reports and CSV export", "Percentages per student, with anyone below 75% flagged."],
-];
+  const features = [
+    ["qr", "i1", "Code changes every 30 seconds", "A screenshot sent to a friend stops working almost immediately."],
+    ["shield", "i2", "Enrolled students only", "Each student can mark attendance once per class."],
+    ["chart", "i4", "Reports and CSV export", "Percentages per student, with anyone below 75% flagged."],
+  ];
 
   return (
     <div className="auth">
@@ -47,10 +54,7 @@ const features = [
         <div className="brand"><span className="logo"><Icon name="qr" size={18} /></span> QR Attendance</div>
         <h1>Take attendance in <span className="grad">under a minute.</span></h1>
         <p className="muted" style={{ fontSize: "1.05rem", maxWidth: 440 }}>
-        Show a QR code in class. Students scan it with their phone. Every record is saved with a timestamp.
-        </p>
-        <p className="muted" style={{ fontSize: "1.1rem", maxWidth: 460 }}>
-          Faculty project a live QR. Students scan it. Done in seconds, with every record verified.
+          Show a QR code in class. Students scan it with their phone. Every record is saved with a timestamp.
         </p>
         <div className="stack">
           {features.map(([ic, cls, t, d]) => (
@@ -79,7 +83,7 @@ const features = [
                 </div>
                 <input className="input" placeholder="Full name" value={form.name} onChange={set("name")} required />
                 {form.role === "faculty" && (
-                  <input className="input" placeholder="Faculty invite code" value={form.inviteCode} onChange={set("inviteCode")} required />
+                  <p className="muted small">Faculty accounts are reviewed by an admin before first sign-in.</p>
                 )}
               </>
             )}

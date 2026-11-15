@@ -190,3 +190,12 @@ td{padding:12px;border-top:1px solid var(--border);vertical-align:middle}
   th,td{padding:10px 6px}
   .fab{left:14px;right:14px;justify-content:center}
 }
+.hide-sm{display:inline}
+@media(max-width:480px){.hide-sm{display:none}}
+
+@media print{
+  .nav,.btn,.fab,.toasts,.search,.seg{display:none!important}
+  body{background:#fff!important;color:#000!important}
+  .container{padding:0!important}
+  .card{box-shadow:none;break-inside:avoid}
+}
